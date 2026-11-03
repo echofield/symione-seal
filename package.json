@@ -1,0 +1,20 @@
+{
+  "name": "symione-seal",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "SYMIONE SEAL — agents prepare, a person seals the irreversible, a hash-chained ledger keeps the trace.",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "dev": "wrangler dev",
+    "db:migrate:local": "wrangler d1 migrations apply symione-seal --local"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20261029.1",
+    "@types/node": "^24.0.0",
+    "typescript": "5.9.3",
+    "vitest": "5.0.5",
+    "wrangler": "4.155.0"
+  }
+}

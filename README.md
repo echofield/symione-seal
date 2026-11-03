@@ -6,6 +6,8 @@ An agent prepares its actions. A person seals the irreversible ones on their pho
 
 The full rules are in [CONTRACT.md](CONTRACT.md).
 
+**Status:** v0.1 runs in production on Cloudflare Workers + D1 (EU), deployed 3 Nov 2026.
+
 ## What it does
 
 - An agent opens a **run**: an intent plus 1 to 8 actions, each of a kind from the policy.
@@ -26,7 +28,7 @@ Honest scope: the Seal gates and records; it does not hold the agent's credentia
 ### From any shell or script
 
 ```sh
-export SEAL_URL=https://symione-seal.<account>.workers.dev SEAL_AGENT_KEY=…   # from private/SEAL_SECRETS.txt
+export SEAL_URL=https://<your-seal>.workers.dev SEAL_AGENT_KEY=…   # from private/SEAL_SECRETS.txt
 node clients/seal.mjs run deploy_production "Go live: TONEHOLD 5103496" "npx wrangler deploy --config …"
 ```
 
@@ -57,7 +59,7 @@ npx tsc -p tsconfig.json
 node scripts/make-secrets.mjs --local        # .dev.vars + private/SEAL_LOCAL.txt
 npx wrangler d1 migrations apply symione-seal --local
 npx wrangler dev --port 8799
-node scripts/smoke.mjs http://127.0.0.1:8799 private/SEAL_LOCAL.txt   # 17 end-to-end checks
+node scripts/smoke.mjs http://127.0.0.1:8799 private/SEAL_LOCAL.txt   # 18 end-to-end checks
 ```
 
 ## Deploy (Cloudflare)

@@ -1,7 +1,5 @@
 # SYMIONE SEAL
 
-[![test](https://github.com/echofield/symione-seal/actions/workflows/test.yml/badge.svg)](https://github.com/echofield/symione-seal/actions/workflows/test.yml)
-
 **An agent prepares an irreversible action. A person approves that exact action from their phone. The approval is an Ed25519 receipt bound to the SHA-256 of the action's input, valid for 15 minutes and redeemable once. Any downstream system can verify it before it acts.**
 
 Charges, emails, deploys, signatures: the system that executes the action can check that a person authorized *this* amount, *this* recipient, *this* command. Every step lands on a hash-chained ledger. It ships as an MCP server and a dependency-free CLI, on Cloudflare Workers + D1.

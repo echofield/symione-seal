@@ -8,6 +8,26 @@ The full rules are in [CONTRACT.md](CONTRACT.md).
 
 **Status:** v0.1 runs in production on Cloudflare Workers + D1 (EU), deployed 3 Nov 2026.
 
+## 40-second demo: a person approves an agent action
+
+**The question:** When an agent is about to charge, send, or sign, who authorized *this exact action* — and how can the next tool check?
+
+> **Video walkthrough (40 seconds):** Recording coming soon. This is a demonstration of the authorization gate, **not** a live Stripe payment.
+
+| Time | On screen | What to show |
+|---|---|---|
+| 0–8s | Agent proposes `charge_payment` with an exact amount, recipient and input | Open a run and show the action waiting for approval |
+| 8–18s | Phone approval screen | Open the seal link, inspect the exact input, tap **Seal** |
+| 18–28s | Signed receipt | Show the Ed25519 receipt bound to the SHA-256 of the input, with 15-minute expiry |
+| 28–36s | Downstream tool | Verify and redeem the receipt before acting; a second redemption is refused |
+| 36–40s | Ledger verification | Show the recorded transitions and hash-chain verification |
+
+**What this proves:** the operator approved a specific action, and an integrated downstream tool can cryptographically verify that approval before execution. It does **not** prove the real-world action succeeded, establish the identity of a legal person, or move/hold money.
+
+**Enforcement boundary:** only tools that require receipt verification are gated. The Seal does not custody agent credentials or prevent a separate, unintegrated tool from acting.
+
+**Recording checklist:** use test data and a disposable run; keep credentials, personal information, private endpoints and bearer tokens out of the video. Show one successful verification and one failed replay. Add a video link here once recorded.
+
 ## What it does
 
 - An agent opens a **run**: an intent plus 1 to 8 actions, each of a kind from the policy.

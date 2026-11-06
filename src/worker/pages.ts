@@ -1,5 +1,5 @@
 // Operator pages: server-rendered HTML, no script, phone first. SYMIONE internal lane (paper-cream tokens from
-// symione-platform/dashboard). Functional v0; the designed version is briefed in FRONTEND_PROMPT.md.
+// symione-platform/dashboard).
 
 import type { ApprovalRow, RunRow } from './engine';
 import type * as engine from './engine';
@@ -38,6 +38,7 @@ button.refuse{background:var(--card);color:var(--red);border-color:var(--red)}
 button.plain{background:var(--ink);color:var(--paper)}
 .ev{font:12px var(--mono);border-top:1px solid var(--border);padding:8px 0;word-break:break-word}
 .ev:first-child{border-top:0}
+.money{font:400 40px/1.1 var(--serif);margin:4px 0 2px}
 footer{margin-top:40px;font:11px var(--mono);letter-spacing:.18em;text-transform:uppercase;color:var(--faint)}
 `;
 
@@ -47,9 +48,30 @@ export function page(title: string, body: string, signedIn = false): Response {
 <title>${esc(title)} · SYMIONE SEAL</title><style>${CSS}</style></head><body><main>
 <header class="top"><a class="brand" href="/">SYMIONE · SEAL</a>${signedIn ? '<form method="post" action="/logout" style="margin:0"><button class="plain" style="width:auto;padding:6px 12px;font-size:12px">Sign out</button></form>' : '<span class="label">Operator</span>'}</header>
 ${body}
-<footer>intent → rules → action → seal → proof → trace</footer>
+<footer>${STEPS}</footer>
 </main></body></html>`;
   return new Response(html, { headers: { 'content-type': 'text/html; charset=utf-8' } });
+}
+
+// Arrows are drawn, never typed: a phone can turn an arrow character into a colour emoji.
+const ARROW = '<svg width="14" height="8" viewBox="0 0 14 8" aria-hidden="true" style="vertical-align:middle;margin:0 6px"><path d="M0 4h12M9 1l3 3-3 3" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>';
+const STEPS = ['intent', 'rules', 'action', 'seal', 'proof', 'trace'].join(ARROW);
+
+// Minor units per currency, as Stripe counts them. Anything else has two.
+const ZERO_DECIMAL = new Set(['bif', 'clp', 'djf', 'gnf', 'jpy', 'kmf', 'krw', 'mga', 'pyg', 'rwf', 'ugx', 'vnd', 'vuv', 'xaf', 'xof', 'xpf']);
+const THREE_DECIMAL = new Set(['bhd', 'jod', 'kwd', 'omr', 'tnd']);
+
+/** For a payment, the amount the person is about to allow, computed from the sealed input itself (never from the
+ *  agent's own summary). Null when the input has no integer amount and three-letter currency. */
+export function moneyLine(kind: string, input: unknown): string | null {
+  if (kind !== 'charge_payment' || !input || typeof input !== 'object') return null;
+  const { amount, currency } = input as { amount?: unknown; currency?: unknown };
+  if (typeof amount !== 'number' || !Number.isSafeInteger(amount) || typeof currency !== 'string' || !/^[a-z]{3}$/i.test(currency)) return null;
+  const cur = currency.toLowerCase();
+  const digits = ZERO_DECIMAL.has(cur) ? 0 : THREE_DECIMAL.has(cur) ? 3 : 2;
+  const abs = String(Math.abs(amount)).padStart(digits + 1, '0');
+  const major = digits ? `${abs.slice(0, -digits)}.${abs.slice(-digits)}` : abs;
+  return `${amount < 0 ? '-' : ''}${major.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} ${cur.toUpperCase()}`;
 }
 
 const tag = (s: string) => `<span class="tag ${esc(s)}">${esc(s.replace('_', ' '))}</span>`;
@@ -97,6 +119,7 @@ function ledgerBlock(view: View): string {
 export function sealPage(approval: ApprovalRow, view: View, formToken: string): Response {
   const action = view.actions.find(a => a.index === approval.idx)!;
   const open = approval.status === 'waiting';
+  const money = moneyLine(action.kind, action.input);
   const decided = open ? '' : `<div class="card"><div class="row"><span class="label">Decision</span>${tag(approval.status)}</div>
 ${approval.decided_at ? `<p class="muted" style="margin:8px 0 0">${esc(approval.decided_by)} · ${when(approval.decided_at)}</p>` : ''}
 ${approval.note ? `<p style="margin:8px 0 0">${esc(approval.note)}</p>` : ''}</div>`;
@@ -111,6 +134,8 @@ ${approval.note ? `<p style="margin:8px 0 0">${esc(approval.note)}</p>` : ''}</d
 <h1>${esc(action.summary)}</h1>
 <p class="muted">${esc(action.kind)} · action ${action.index + 1} of ${view.actions.length}</p>
 ${decided}
+${money ? `<div class="card"><p class="label" style="margin:0">Amount, read from the sealed input</p><p class="money">${esc(money)}</p>
+<p class="faint" style="margin:0;font-size:13px">amount ${esc((action.input as { amount: number }).amount)} in minor units</p></div>` : ''}
 <div class="card"><p class="label" style="margin-bottom:6px">Exact input</p><pre>${pretty(action.input)}</pre>
 <p class="faint" style="margin:8px 0 0">Bound by <code>${esc(action.input_hash)}</code></p></div>
 ${form}
@@ -126,7 +151,7 @@ export function runPage(view: View): Response {
 <p class="label">${esc(view.run.agent)} · ${when(view.run.created_at)}</p>
 <h1>${esc(view.run.intent)}</h1>
 <p>${tag(view.run.status)}${view.run.stop_reason ? ` <span class="muted">${esc(view.run.stop_reason)}</span>` : ''}</p>
-${view.approvals.filter(a => a.status === 'waiting').map(a => `<p><a href="/seal/${esc(a.id)}">Open the waiting seal request →</a></p>`).join('')}
+${view.approvals.filter(a => a.status === 'waiting').map(a => `<p><a href="/seal/${esc(a.id)}">Open the waiting seal request</a></p>`).join('')}
 <h2>Actions</h2>${actionsBlock(view, view.run.status === 'completed' ? null : view.run.cursor)}
 <h2>Ledger</h2>${ledgerBlock(view)}`, true);
 }

@@ -18,6 +18,7 @@
 import { spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import process from 'node:process';
+import { checkReceipt, inputHash } from './verify.mjs';
 
 const BASE = (process.env.SEAL_URL ?? '').replace(/\/+$/, '');
 const KEY = process.env.SEAL_AGENT_KEY ?? '';
@@ -27,29 +28,6 @@ const WAIT_SECONDS = Number(process.env.SEAL_WAIT_SECONDS ?? 1800);
 const die = (msg, code = 2) => { console.error(msg); process.exit(code); };
 const readJsonFile = p => { try { return JSON.parse(readFileSync(p, 'utf8')); } catch (e) { die(`Cannot read JSON from ${p}: ${e.message}`); } };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-
-// --- Canonical JSON + SHA-256, byte-identical to the Worker (src/core/canonical.ts) ----------------------------------
-function canonical(value, depth = 0) {
-  if (depth > 64) throw new Error('JSON nesting exceeds 64');
-  if (value === null || typeof value === 'boolean') return String(value);
-  if (typeof value === 'string') { if (!value.isWellFormed()) throw new Error('invalid Unicode'); return JSON.stringify(value); }
-  if (typeof value === 'number') { if (!Number.isSafeInteger(value) || Object.is(value, -0)) throw new Error('only safe integers'); return String(value); }
-  if (Array.isArray(value)) return '[' + value.map(v => canonical(v, depth + 1)).join(',') + ']';
-  if (typeof value !== 'object') throw new Error('not a JSON value');
-  return '{' + Object.keys(value).filter(k => value[k] !== undefined).sort().map(k => JSON.stringify(k) + ':' + canonical(value[k], depth + 1)).join(',') + '}';
-}
-function jsonSafe(value) {
-  if (value === undefined) return null;
-  if (typeof value === 'number') return Number.isSafeInteger(value) && !Object.is(value, -0) ? value : String(value);
-  if (Array.isArray(value)) return value.map(jsonSafe);
-  if (value && typeof value === 'object') { const o = {}; for (const [k, v] of Object.entries(value)) if (v !== undefined) Object.defineProperty(o, k, { value: jsonSafe(v), enumerable: true, writable: true, configurable: true }); return o; }
-  return value;
-}
-async function inputHash(input) {
-  const bytes = new TextEncoder().encode(canonical(jsonSafe(input)));
-  const d = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
-  return 'sha256:' + [...d].map(b => b.toString(16).padStart(2, '0')).join('');
-}
 
 // --- HTTP -------------------------------------------------------------------------------------------------------
 function needConfig() {
@@ -68,26 +46,16 @@ async function api(method, path, body) {
 }
 const print = v => console.log(JSON.stringify(v, null, 2));
 
-// --- Offline receipt check (published Ed25519 key) ----------------------------------------------------------------
-const fromB64url = s => Uint8Array.from(Buffer.from(s, 'base64url'));
+// --- Receipt check: offline against the published key (clients/verify.mjs), then redeemed once online ---------------
 async function verifyReceipt(kind, token, input) {
   needConfig();
   const wk = await (await fetch(`${BASE}/.well-known/symione-seal.json`)).json();
-  const [body, sig] = String(token).split('.');
-  if (!body || !sig) return { ok: false, why: 'not a receipt token' };
-  const key = await crypto.subtle.importKey('jwk', wk.public_key_jwk, { name: 'Ed25519' }, false, ['verify']);
-  const bytes = fromB64url(body);
-  if (!(await crypto.subtle.verify({ name: 'Ed25519' }, key, fromB64url(sig), bytes))) return { ok: false, why: 'signature does not verify against the published key' };
-  const payload = JSON.parse(new TextDecoder().decode(bytes));
-  if (payload.issuer !== wk.issuer) return { ok: false, why: `issued by ${payload.issuer}, expected ${wk.issuer}` };
-  if (payload.kind !== kind) return { ok: false, why: `sealed for ${payload.kind}, not ${kind}` };
-  const hash = await inputHash(input);
-  if (payload.input_hash !== hash) return { ok: false, why: 'sealed for a different input' };
-  if (!(new Date().toISOString() < payload.expires_at)) return { ok: false, why: 'expired' };
+  const r = await checkReceipt({ token, publicJwk: wk.public_key_jwk, issuer: wk.issuer, kind, input });
+  if (!r.ok) return { ok: false, why: `${r.code}: ${r.why}` };
   try {
-    await api('POST', '/api/receipts/redeem', { receipt: token, input_hash: hash, kind });
+    await api('POST', '/api/receipts/redeem', { receipt: token, input_hash: r.input_hash, kind });
   } catch (e) { return { ok: false, why: `${e.code ?? 'redeem failed'}: ${e.message}` }; }
-  return { ok: true, payload };
+  return { ok: true, payload: r.payload };
 }
 
 // --- Waiting for the person ---------------------------------------------------------------------------------------
@@ -98,7 +66,7 @@ async function waitForDecision(runId) {
     const n = await api('POST', `/api/runs/${runId}/next`, {});
     if (n.decision === 'go') return n;
     if (n.decision === 'stop' || n.decision === 'done') return n;
-    if (!shown) { console.error(`\nWaiting for the seal → ${n.seal_url}\n(expires ${n.expires_at})`); shown = true; }
+    if (!shown) { console.error(`\nWaiting for the seal: ${n.seal_url}\n(expires ${n.expires_at})`); shown = true; }
     if (Date.now() > deadline) { console.error('Still waiting; stopped polling. Run "next" later.'); process.exit(3); }
     await sleep(5000);
   }

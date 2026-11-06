@@ -3,7 +3,20 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "SYMIONE SEAL — agents prepare, a person seals the irreversible, a hash-chained ledger keeps the trace.",
+  "description": "A person approves an agent's irreversible action from their phone: an Ed25519 receipt bound to the exact input, verified downstream before the action runs.",
+  "keywords": [
+    "mcp",
+    "ai-agents",
+    "agentic-commerce",
+    "human-in-the-loop",
+    "ed25519",
+    "stripe",
+    "cloudflare-workers",
+    "audit-log"
+  ],
+  "engines": {
+    "node": ">=22.13"
+  },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",

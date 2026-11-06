@@ -1,5 +1,5 @@
 // End-to-end smoke against a running Seal (local `wrangler dev` or the deployed Worker), the way an agent and a phone
-// would use it: open → go → report → wait → sign in → seal on the page → receipt → redeem → report → ledger intact.
+// would use it: open -> go -> report -> wait -> sign in -> seal on the page -> receipt -> redeem -> report -> ledger intact.
 // Also proves the refusals: acting before the seal, a second redeem, a wrong input, a forged form, a foreign origin.
 //
 //   node scripts/smoke.mjs <base-url> <secrets-file>
@@ -32,10 +32,10 @@ const opened = await api('POST', '/api/runs', {
 });
 check(opened.status === 201, 'open run', `${opened.status} ${opened.data?.run_id ?? JSON.stringify(opened.data)}`);
 const runId = opened.data.run_id;
-check((await api('POST', `/api/runs/${runId}/next`, {})).data?.decision === 'go', 'draft → go');
+check((await api('POST', `/api/runs/${runId}/next`, {})).data?.decision === 'go', 'draft -> go');
 check((await api('POST', `/api/runs/${runId}/report`, { index: 0, outcome: 'done' })).data?.cursor === 1, 'report draft');
 const wait = (await api('POST', `/api/runs/${runId}/next`, {})).data;
-check(wait?.decision === 'wait' && wait.seal_url?.startsWith(base), 'sealed kind → wait', wait?.seal_url);
+check(wait?.decision === 'wait' && wait.seal_url?.startsWith(base), 'sealed kind -> wait', wait?.seal_url);
 check((await api('POST', `/api/runs/${runId}/report`, { index: 1, outcome: 'done', evidence: { id: 'x' } })).status === 409, 'acting before the seal is refused');
 
 // The phone.
@@ -53,7 +53,7 @@ check((await post({ origin: base }, token)).status === 303, 'SEAL pressed');
 check((await post({ origin: base }, token, 'refuse')).status === 409, 'second decision refused');
 
 const go = (await api('POST', `/api/runs/${runId}/next`, {})).data;
-check(go?.decision === 'go' && typeof go.receipt === 'string', 'after the seal → go with a receipt');
+check(go?.decision === 'go' && typeof go.receipt === 'string', 'after the seal -> go with a receipt');
 check((await api('POST', '/api/receipts/redeem', { receipt: go.receipt, input_hash: 'sha256:' + '0'.repeat(64), kind: 'send_message' })).data?.error?.code === 'RECEIPT_MISMATCH', 'receipt refuses another input');
 check((await api('POST', '/api/receipts/redeem', { receipt: go.receipt, input_hash: go.input_hash, kind: 'deploy_production' })).data?.error?.code === 'RECEIPT_MISMATCH', 'receipt refuses another kind');
 check((await api('POST', '/api/receipts/redeem', { receipt: go.receipt, input_hash: go.input_hash, kind: 'send_message' })).data?.ok === true, 'receipt redeemed once');
@@ -63,6 +63,6 @@ check(done?.status === 'completed', 'report with evidence completes the run');
 const ledger = (await api('GET', '/api/ledger/verify')).data;
 check(ledger?.intact === true, 'ledger verifies', `${ledger?.count} events, head ${ledger?.head?.hash?.slice(0, 20)}…`);
 const status = (await api('GET', `/api/runs/${runId}`)).data;
-console.log('events:', status.events.map(e => e.action).join(' → '));
+console.log('events:', status.events.map(e => e.action).join(' -> '));
 console.log(failures ? `\n${failures} FAILED` : '\nALL PASS');
 process.exit(failures ? 1 : 0);

@@ -12,11 +12,11 @@ describe('the seal flow, end to end over HTTP', () => {
     const sendInput = sampleRun().actions[1].input;
     expect(opened.data.actions[1].input_hash).toBe(await digest(jsonSafe(sendInput)));
 
-    // Action 0: safe → go.
+    // Action 0: safe -> go.
     expect((await h.agent(`/api/runs/${runId}/next`, {})).data).toMatchObject({ decision: 'go', index: 0, kind: 'draft' });
     expect((await h.agent(`/api/runs/${runId}/report`, { index: 0, outcome: 'done', evidence: { draft: 'v1' } })).data).toMatchObject({ status: 'open', cursor: 1 });
 
-    // Action 1: sealed → wait (and the same answer again).
+    // Action 1: sealed -> wait (and the same answer again).
     const wait = (await h.agent(`/api/runs/${runId}/next`, {})).data;
     expect(wait).toMatchObject({ decision: 'wait', index: 1, kind: 'send_email' });
     expect(wait.seal_url).toBe(`${ORIGIN}/seal/${wait.approval_id}`);

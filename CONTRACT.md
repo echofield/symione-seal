@@ -2,15 +2,7 @@
 
 The Seal lets an agent prepare its actions while a person decides the irreversible ones. Every step is kept in a ledger that cannot be quietly rewritten.
 
-Grammar: **intent → rules → action → seal → proof → trace**. These are SYMIONE's first steps. Settlement comes later and plugs in as a sealed action kind (`charge_payment`).
-
-Sources revived:
-- the OP-CHORE kernel (`01_SYSTEMS/Systems/Realsystems/Opera_final/lib/kernel`): strict plan, 8 calls at most, risky tools pause, cursor resume, redaction;
-- tiny_seed (`03_LABS/sql`): an append-only table with triggers;
-- MANDATE's canonical JSON and hash chain;
-- RDE-Kernel's refusal guard;
-- the IPX-001 idea that a card carries its own proof rule;
-- the IFAH house pattern (Ed25519 signatures).
+The steps, in order: **intent, rules, action, seal, proof, trace**. Settlement plugs in as a sealed action kind (`charge_payment`); `examples/stripe-charge.mjs` is the downstream that enforces it on Stripe.
 
 ## Honest scope
 
@@ -24,7 +16,7 @@ Sources revived:
 | Actor | How they authenticate | What they can do |
 |---|---|---|
 | Agent | `Authorization: Bearer <SEAL_AGENT_KEY>` (compared in constant time through SHA-256) | open runs, ask `next`, report, read runs, redeem receipts, verify the ledger, MCP |
-| Operator (the person) | password → PBKDF2-SHA256 hash in `SEAL_OPERATOR_HASH` → session cookie (HMAC-SHA256, `SESSION_SECRET`, 12 h, HttpOnly, Secure, SameSite=Lax so a seal link opened from another app arrives signed in; POSTs are protected by the Origin check and the form token) | inbox, seal page, seal or refuse, run pages |
+| Operator (the person) | password, checked against a PBKDF2-SHA256 hash in `SEAL_OPERATOR_HASH`, then a session cookie (HMAC-SHA256, `SESSION_SECRET`, 12 h, HttpOnly, Secure, SameSite=Lax so a seal link opened from another app arrives signed in; POSTs are protected by the Origin check and the form token) | inbox, seal page, seal or refuse, run pages |
 | Anyone | none | `GET /.well-known/symione-seal.json` (public key), `GET /health` |
 
 - **Login lockout:** after 5 failed logins from one source in 15 minutes, the response is `429` until the window passes.
@@ -54,9 +46,9 @@ Limits:
 
 ## States
 
-- Run: `open` → `waiting_seal` → `open` … → `completed`. Or `stopped`, which happens on a refusal, an expired request or a failed action.
-- Action: `planned` → `cleared` (read or safe) → `done` or `failed`.
-- Action, when sealed: `planned` → `waiting_seal` → `sealed` → `done` or `failed`. Or `refused`, or `expired`.
+- Run: `open`, then `waiting_seal`, then `open` again, until `completed`. Or `stopped`, which happens on a refusal, an expired request or a failed action.
+- Action: `planned`, then `cleared` (read or safe), then `done` or `failed`.
+- Action, when sealed: `planned`, then `waiting_seal`, then `sealed`, then `done` or `failed`. Or `refused`, or `expired`.
 - A run holds a `cursor`, the index of the current action. `report` moves it forward. Actions run in order.
 
 ## Agent API (JSON)
@@ -66,7 +58,7 @@ Limits:
 Request:
 
 ```json
-{ "agent": "claude-code@martial-pc", "intent": "…", "plan": ["…"],
+{ "agent": "procurement-agent@acme", "intent": "…", "plan": ["…"],
   "actions": [{ "kind": "draft", "summary": "…", "input": {} }],
   "stop_conditions": ["…"] }
 ```
@@ -155,6 +147,9 @@ Every error has the shape `{ "error": { "code", "message" } }`, with the matchin
 
 ## Operator pages (HTML, no script, phone first)
 
+For `charge_payment`, the seal page shows the amount computed from the sealed input (`amount` in minor units and `currency`, as Stripe counts them), above the exact input.
+
+
 - `GET /`: the inbox, with waiting seals first and then the last 20 runs. It redirects to `/login` without a session.
 - `GET /login` and `POST /login`: sign in. `POST /logout`: sign out.
 - `GET /seal/:approval_id`: shows the intent, the plan, the action kind, its summary, the redacted input, the input hash, the earlier actions and their evidence, the expiry, and SEAL / REFUSE with an optional note (500 characters at most).
@@ -192,4 +187,4 @@ Each event commits in the same D1 batch as its state change. Table `events` is a
 - Signed chain heads.
 - More than one operator.
 - Push notifications (for now the agent shows the seal link).
-- **The Pact**: several people sealing one shared run. See `docs/NEXT-PROMPT.md`.
+- Several people sealing one shared run.

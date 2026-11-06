@@ -8,6 +8,7 @@
     "noFallthroughCasesInSwitch": true,
     "skipLibCheck": true,
     "isolatedModules": true,
+    "allowJs": true,
     "noEmit": true,
     "types": ["@cloudflare/workers-types", "@types/node"]
   },

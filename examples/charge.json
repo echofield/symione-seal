@@ -1,0 +1,8 @@
+{
+  "amount": 4200,
+  "currency": "eur",
+  "description": "Annual API plan, ordered by the procurement agent",
+  "payment_method": "pm_card_visa",
+  "payment_method_types": ["card"],
+  "confirm": true
+}

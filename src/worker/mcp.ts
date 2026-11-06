@@ -36,7 +36,7 @@ const TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        agent: { type: 'string', description: 'Who you are, e.g. "claude-code@martial-pc".' },
+        agent: { type: 'string', description: 'Who you are, e.g. "procurement-agent@acme".' },
         intent: { type: 'string' },
         plan: { type: 'array', items: { type: 'string' } },
         actions: { type: 'array', items: actionSchema, minItems: 1, maxItems: 8 },
